@@ -25,8 +25,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/users")
 @Tag(name = "Usuários", description = "Endpoints para gerenciamento de usuários")
@@ -90,23 +88,6 @@ public class UserController {
         return ResponseEntity.status(201).body(new UserResponse(savedUser.getId(), savedUser.getName(), savedUser.getEmail()));
     }
 
-    // READ: Listar todos os usuários
-    @GetMapping
-    @Operation(
-        summary = "Lista todos os usuários",
-        description = "Retorna uma lista com todos os usuários cadastrados no sistema.",
-        responses = {
-            @ApiResponse(responseCode = "200", description = "Lista de usuários recuperada com sucesso",
-                content = @Content(mediaType = "application/json", schema = @Schema(implementation = User.class))),
-            @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
-                content = @Content(mediaType = "application/json"))
-        }
-    )
-    public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = repository.findAll();
-        return ResponseEntity.ok(users);
-    }
-
     // READ: Recuperar o próprio usuário autenticado
     @GetMapping("/me")
     @Operation(
@@ -128,19 +109,21 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // DELETE: Excluir um usuário pelo email
+    // DELETE: Excluir apenas o próprio usuário autenticado
     @DeleteMapping("/{email}")
     @CacheEvict(value = "categories", allEntries = true)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
-        summary = "Exclui um usuário pelo email",
-        description = "Remove permanentemente o usuário associado ao email fornecido.",
+        summary = "Exclui o próprio usuário",
+        description = "Remove permanentemente o usuário autenticado. Não é permitido excluir outro usuário.",
         parameters = {
-            @Parameter(name = "email", description = "Email do usuário a ser excluído", required = true,
-                schema = @Schema(type = "string", example = "joao.silva@example.com"))
+            @Parameter(name = "email", description = "Email do usuário a ser excluído (deve ser o mesmo do usuário autenticado)",
+                required = true, schema = @Schema(type = "string", example = "usuario.logado@example.com"))
         },
         responses = {
             @ApiResponse(responseCode = "204", description = "Usuário excluído com sucesso"),
+            @ApiResponse(responseCode = "403", description = "Acesso negado: não é possível excluir outro usuário",
+                content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
                 content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
@@ -148,20 +131,26 @@ public class UserController {
         }
     )
     public void destroy(@PathVariable String email) {
+        String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        if (!authenticatedEmail.equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode excluir sua própria conta.");
+        }
+
         log.info("Apagando usuário com email: " + email);
         User user = getUser(email);
         repository.delete(user);
     }
 
-    // UPDATE: Atualizar um usuário pelo email
+    // UPDATE: Atualizar apenas o próprio usuário autenticado
     @PutMapping("/{email}")
     @CacheEvict(value = "categories", allEntries = true)
     @Operation(
-        summary = "Atualiza um usuário pelo email",
-        description = "Atualiza os dados do usuário associado ao email fornecido. Apenas os campos fornecidos serão atualizados.",
+        summary = "Atualiza o próprio usuário",
+        description = "Atualiza os dados do usuário autenticado. Não é permitido atualizar outro usuário.",
         parameters = {
-            @Parameter(name = "email", description = "Email do usuário a ser atualizado", required = true,
-                schema = @Schema(type = "string", example = "joao.silva@example.com"))
+            @Parameter(name = "email", description = "Email do usuário a ser atualizado (deve ser o mesmo do usuário autenticado)",
+                required = true, schema = @Schema(type = "string", example = "usuario.logado@example.com"))
         },
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Dados atualizados do usuário",
@@ -173,6 +162,8 @@ public class UserController {
                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = User.class))),
             @ApiResponse(responseCode = "400", description = "Erro de validação nos dados fornecidos",
                 content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "403", description = "Acesso negado: não é possível editar outro usuário",
+                content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
                 content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
@@ -180,6 +171,12 @@ public class UserController {
         }
     )
     public ResponseEntity<User> update(@Valid @PathVariable String email, @RequestBody User updatedUser) {
+        String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        if (!authenticatedEmail.equals(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode editar sua própria conta.");
+        }
+
         log.info("Atualizando usuário com email: " + email);
         User currentUser = getUser(email);
 
@@ -193,7 +190,7 @@ public class UserController {
             currentUser.setPhone(updatedUser.getPhone());
         }
         if (updatedUser.getPassword() != null) {
-            currentUser.setPassword(updatedUser.getPassword());
+            currentUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
         }
 
         User savedUser = repository.save(currentUser);

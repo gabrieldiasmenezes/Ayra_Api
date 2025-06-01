@@ -25,7 +25,6 @@ public class SecurityConfig {
                     .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.POST, "/login").permitAll()
                     .requestMatchers(HttpMethod.POST, "/users/**").permitAll()
-
                     // Rotas públicas
                     .requestMatchers(HttpMethod.GET, "/coordinates").permitAll()
                     .requestMatchers(HttpMethod.GET, "/coordinates/**").permitAll()
@@ -40,8 +39,6 @@ public class SecurityConfig {
                     .requestMatchers( "/safe-location/**").permitAll()
                     .requestMatchers( "/safe-tip/**").permitAll()
                     .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-
-                    // Qualquer outra rota requer autenticação
                     .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf.disable())
