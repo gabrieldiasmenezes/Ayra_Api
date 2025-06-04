@@ -222,31 +222,6 @@ CREATE TABLE safe_tip (
 );
 ```
 
-### Instruções para Limpar e Recriar as Tabelas no Banco de Dados
-
-1. Exclua as tabelas existentes:
-
-Execute os seguintes comandos SQL no seu banco de dados Oracle para excluir as tabelas existentes:
-```sql
-DROP TABLE safe_tip;
-DROP TABLE safe_location;
-DROP TABLE safe_routes;
-DROP TABLE alert;
-DROP TABLE emergency_user;
-DROP TABLE user_table;
-DROP TABLE emergency_contact;
-DROP TABLE map_marker;
-DROP TABLE coordinates;
-```
-
-2. Crie as Tabelas Novamente
-
-Após excluir as tabelas, execute os scripts SQL fornecidos na seção "Instruções para Criação Manual de Tabelas" deste README para recriar as tabelas.
-
-3. Execute o Projeto
-
-Agora você pode rodar o projeto novamente. O sistema irá popular automaticamente as tabelas com os dados iniciais definidos na classe `DatabaseSeeder`.
-
 ---
 
 ### Rodando localmente com Maven
