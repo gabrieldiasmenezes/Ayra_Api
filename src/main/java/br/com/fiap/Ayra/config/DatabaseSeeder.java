@@ -69,12 +69,14 @@ public class DatabaseSeeder {
                 .longitude(-46.5300)
                 .dateCoordinate(LocalDate.now().minusDays(4))
                 .build();
-
-        coordinatesRepository.save(saoPauloCenter);
-        coordinatesRepository.save(santana);
-        coordinatesRepository.save(moema);
-        coordinatesRepository.save(barueri);
-        coordinatesRepository.save(guarulhos);
+        
+        if(coordinatesRepository.count()==0){
+            coordinatesRepository.save(saoPauloCenter);
+            coordinatesRepository.save(santana);
+            coordinatesRepository.save(moema);
+            coordinatesRepository.save(barueri);
+            coordinatesRepository.save(guarulhos);
+        }
 
         // 2. MapMarker (Marcadores relacionados aos locais acima)
         MapMarker marker1 = MapMarker.builder()
@@ -117,11 +119,13 @@ public class DatabaseSeeder {
                 .coordinates(guarulhos)
                 .build();
 
-        mapMarkerRepository.save(marker1);
-        mapMarkerRepository.save(marker2);
-        mapMarkerRepository.save(marker3);
-        mapMarkerRepository.save(marker4);
-        mapMarkerRepository.save(marker5);
+        if(mapMarkerRepository.count()==0){
+            mapMarkerRepository.save(marker1);
+            mapMarkerRepository.save(marker2);
+            mapMarkerRepository.save(marker3);
+            mapMarkerRepository.save(marker4);
+            mapMarkerRepository.save(marker5);
+        }
 
         // 3. Alertas (Relacionados aos marcadores acima)
         Alert alert1 = Alert.builder()
@@ -178,12 +182,14 @@ public class DatabaseSeeder {
                 .coordinates(guarulhos)
                 .mapMarker(marker5)
                 .build();
-
-        alertRepository.save(alert1);
-        alertRepository.save(alert2);
-        alertRepository.save(alert3);
-        alertRepository.save(alert4);
-        alertRepository.save(alert5);
+        
+        if(alertRepository.count()==0){
+            alertRepository.save(alert1);
+            alertRepository.save(alert2);
+            alertRepository.save(alert3);
+            alertRepository.save(alert4);
+            alertRepository.save(alert5);
+        }
 
         // 4. SafeRoutes (Rotas seguras nos locais acima)
         SafeRoutes safeRoute1 = SafeRoutes.builder()
@@ -210,12 +216,14 @@ public class DatabaseSeeder {
                 .route("Rodovia Presidente Dutra -> Centro de Guarulhos")
                 .alert(alert5)
                 .build();
-
-        safeRoutesRepository.save(safeRoute1);
-        safeRoutesRepository.save(safeRoute2);
-        safeRoutesRepository.save(safeRoute3);
-        safeRoutesRepository.save(safeRoute4);
-        safeRoutesRepository.save(safeRoute5);
+        
+        if(safeRoutesRepository.count()==0){
+            safeRoutesRepository.save(safeRoute1);
+            safeRoutesRepository.save(safeRoute2);
+            safeRoutesRepository.save(safeRoute3);
+            safeRoutesRepository.save(safeRoute4);
+            safeRoutesRepository.save(safeRoute5);
+        }
 
         // 5. SafeLocation (Locais seguros nos locais acima)
         SafeLocation safeLocation1 = SafeLocation.builder()
@@ -243,11 +251,13 @@ public class DatabaseSeeder {
                 .alert(alert5)
                 .build();
 
-        safeLocationRepository.save(safeLocation1);
-        safeLocationRepository.save(safeLocation2);
-        safeLocationRepository.save(safeLocation3);
-        safeLocationRepository.save(safeLocation4);
-        safeLocationRepository.save(safeLocation5);
+        if(safeLocationRepository.count()==0){
+            safeLocationRepository.save(safeLocation1);
+            safeLocationRepository.save(safeLocation2);
+            safeLocationRepository.save(safeLocation3);
+            safeLocationRepository.save(safeLocation4);
+            safeLocationRepository.save(safeLocation5);
+        }
 
         // 6. SafeTips (Dicas de segurança nos locais acima)
         SafeTip safeTip1 = SafeTip.builder()
@@ -274,12 +284,14 @@ public class DatabaseSeeder {
                 .tip("Procure abrigos designados em emergências.")
                 .alert(alert5)
                 .build();
-
-        safeTipsRepository.save(safeTip1);
-        safeTipsRepository.save(safeTip2);
-        safeTipsRepository.save(safeTip3);
-        safeTipsRepository.save(safeTip4);
-        safeTipsRepository.save(safeTip5);
+        
+        if(safeTipsRepository.count()==0){
+            safeTipsRepository.save(safeTip1);
+            safeTipsRepository.save(safeTip2);
+            safeTipsRepository.save(safeTip3);
+            safeTipsRepository.save(safeTip4);
+            safeTipsRepository.save(safeTip5);
+        }
 
         // 7. User com senha criptografada
         User user1 = User.builder()
@@ -297,9 +309,11 @@ public class DatabaseSeeder {
                 .phone("11888888888")
                 .coordinates(santana)
                 .build();
-
-        userRepository.save(user1);
-        userRepository.save(user2);
+        
+        if(userRepository.count()==0){
+            userRepository.save(user1);
+            userRepository.save(user2);
+        }
 
         System.out.println("Database seeded with sample data!");
     }
