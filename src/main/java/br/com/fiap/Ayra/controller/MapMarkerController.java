@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,8 @@ public class MapMarkerController {
 
     // POST /map-marker - Criar novo marcador
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    @CacheEvict(value = "map-marker", allEntries = true)
     @Operation(
         summary = "Cria um novo marcador no mapa",
         description = "Registra um marcador geográfico associado a uma coordenada já existente.",
@@ -57,12 +60,51 @@ public class MapMarkerController {
         }
     )
     public ResponseEntity<MapMarker> create(@RequestBody MapMarker map) {
-        Coordinates coordinates = coordinatesRepository.findById(map.getCoordinates().getId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Coordenada não encontrada"));
+        // Obtém as coordenadas do JSON recebido
+        Coordinates coordinates = map.getCoordinates();
 
-        map.setCoordinates(coordinates); // Garante que o objeto gerenciado seja usado
+        if (coordinates == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "As coordenadas são obrigatórias.");
+        }
+
+        boolean exists = false;
+
+        // Verifica se já existe pelo ID ou por proximidade geográfica
+        if (coordinates.getId() != null) {
+            exists = coordinatesRepository.existsById(coordinates.getId());
+        } else {
+            exists = !coordinatesRepository
+                .findByLatitudeBetweenAndLongitudeBetween(
+                    coordinates.getLatitude() - 0.0001,
+                    coordinates.getLatitude() + 0.0001,
+                    coordinates.getLongitude() - 0.0001,
+                    coordinates.getLongitude() + 0.0001)
+                .isEmpty();
+        }
+
+        // Se não existir, salva as coordenadas
+        if (!exists) {
+            coordinates = coordinatesRepository.save(coordinates); // Salva e obtém a instância persistida
+        } else {
+            // Se existir, busca a instância persistida no banco
+            coordinates = coordinatesRepository
+                .findByLatitudeBetweenAndLongitudeBetween(
+                    coordinates.getLatitude() - 0.0001,
+                    coordinates.getLatitude() + 0.0001,
+                    coordinates.getLongitude() - 0.0001,
+                    coordinates.getLongitude() + 0.0001)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Coordenadas não encontradas"));
+        }
+
+        // Garante que a instância persistida seja usada
+        map.setCoordinates(coordinates);
+
+        // Salva o marcador no banco de dados
         MapMarker saved = repository.save(map);
 
+        // Retorna a URI do recurso criado
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -71,7 +113,6 @@ public class MapMarkerController {
 
         return ResponseEntity.created(location).body(saved);
     }
-
     // GET /map-marker/{id} - Buscar marcador por ID
     @GetMapping("/{id}")
     @Operation(

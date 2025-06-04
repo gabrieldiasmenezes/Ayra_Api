@@ -25,6 +25,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/users")
 @Tag(name = "Usuários", description = "Endpoints para gerenciamento de usuários")
@@ -42,6 +44,7 @@ public class UserController {
 
     // CREATE: Criar um novo usuário
     @PostMapping
+    @ResponseStatus(code = HttpStatus.CREATED)
     @Operation(
         summary = "Cria um novo usuário",
         description = "Registra um novo usuário no sistema. Todos os campos obrigatórios devem ser fornecidos.",
@@ -60,10 +63,12 @@ public class UserController {
         }
     )
     public ResponseEntity<UserResponse> createUser(@RequestBody User user) {
-        // Verifica e trata as coordenadas
         Coordinates coordinates = user.getCoordinates();
+        
         if (coordinates != null) {
             boolean exists = false;
+
+            // Verifica se já existe pelo ID ou por proximidade geográfica
             if (coordinates.getId() != null) {
                 exists = coordinatesRepository.existsById(coordinates.getId());
             } else {
@@ -76,16 +81,50 @@ public class UserController {
                     .isEmpty();
             }
 
+            // Se não existir, salva as coordenadas
             if (!exists) {
-                coordinates = coordinatesRepository.save(coordinates);
+                coordinates = coordinatesRepository.save(coordinates); // Salva e obtém a instância persistida
+            } else {
+                // Se existir, busca a instância persistida no banco
+                coordinates = coordinatesRepository
+                    .findByLatitudeBetweenAndLongitudeBetween(
+                        coordinates.getLatitude() - 0.0001,
+                        coordinates.getLatitude() + 0.0001,
+                        coordinates.getLongitude() - 0.0001,
+                        coordinates.getLongitude() + 0.0001)
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Coordenadas não encontradas"));
             }
 
+            // Garante que a instância persistida seja usada
             user.setCoordinates(coordinates);
         }
 
+        // Codifica a senha antes de salvar o usuário
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+        // Agora salva o usuário com coordenadas válidas (salvas ou já existentes)
         User savedUser = repository.save(user);
+
         return ResponseEntity.status(201).body(new UserResponse(savedUser.getId(), savedUser.getName(), savedUser.getEmail()));
+    }
+
+    // READ: Listar todos os usuários
+    @GetMapping
+    @Operation(
+        summary = "Lista todos os usuários",
+        description = "Retorna uma lista com todos os usuários cadastrados no sistema.",
+        responses = {
+            @ApiResponse(responseCode = "200", description = "Lista de usuários recuperada com sucesso",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = User.class))),
+            @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
+                content = @Content(mediaType = "application/json"))
+        }
+    )
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = repository.findAll();
+        return ResponseEntity.ok(users);
     }
 
     // READ: Recuperar o próprio usuário autenticado
@@ -109,21 +148,19 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // DELETE: Excluir apenas o próprio usuário autenticado
+    // DELETE: Excluir um usuário pelo email
     @DeleteMapping("/{email}")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = "users", allEntries = true)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
-        summary = "Exclui o próprio usuário",
-        description = "Remove permanentemente o usuário autenticado. Não é permitido excluir outro usuário.",
+        summary = "Exclui um usuário pelo email",
+        description = "Remove permanentemente o usuário associado ao email fornecido.",
         parameters = {
-            @Parameter(name = "email", description = "Email do usuário a ser excluído (deve ser o mesmo do usuário autenticado)",
-                required = true, schema = @Schema(type = "string", example = "usuario.logado@example.com"))
+            @Parameter(name = "email", description = "Email do usuário a ser excluído", required = true,
+                schema = @Schema(type = "string", example = "joao.silva@example.com"))
         },
         responses = {
             @ApiResponse(responseCode = "204", description = "Usuário excluído com sucesso"),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: não é possível excluir outro usuário",
-                content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
                 content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
@@ -131,26 +168,20 @@ public class UserController {
         }
     )
     public void destroy(@PathVariable String email) {
-        String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        if (!authenticatedEmail.equals(email)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode excluir sua própria conta.");
-        }
-
         log.info("Apagando usuário com email: " + email);
         User user = getUser(email);
         repository.delete(user);
     }
 
-    // UPDATE: Atualizar apenas o próprio usuário autenticado
+    // UPDATE: Atualizar um usuário pelo email
     @PutMapping("/{email}")
-    @CacheEvict(value = "categories", allEntries = true)
+    @CacheEvict(value = "users", allEntries = true)
     @Operation(
-        summary = "Atualiza o próprio usuário",
-        description = "Atualiza os dados do usuário autenticado. Não é permitido atualizar outro usuário.",
+        summary = "Atualiza um usuário pelo email",
+        description = "Atualiza os dados do usuário associado ao email fornecido. Apenas os campos fornecidos serão atualizados.",
         parameters = {
-            @Parameter(name = "email", description = "Email do usuário a ser atualizado (deve ser o mesmo do usuário autenticado)",
-                required = true, schema = @Schema(type = "string", example = "usuario.logado@example.com"))
+            @Parameter(name = "email", description = "Email do usuário a ser atualizado", required = true,
+                schema = @Schema(type = "string", example = "joao.silva@example.com"))
         },
         requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Dados atualizados do usuário",
@@ -162,8 +193,6 @@ public class UserController {
                 content = @Content(mediaType = "application/json", schema = @Schema(implementation = User.class))),
             @ApiResponse(responseCode = "400", description = "Erro de validação nos dados fornecidos",
                 content = @Content(mediaType = "application/json")),
-            @ApiResponse(responseCode = "403", description = "Acesso negado: não é possível editar outro usuário",
-                content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado",
                 content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "500", description = "Erro interno do servidor",
@@ -171,12 +200,6 @@ public class UserController {
         }
     )
     public ResponseEntity<User> update(@Valid @PathVariable String email, @RequestBody User updatedUser) {
-        String authenticatedEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        if (!authenticatedEmail.equals(email)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Você só pode editar sua própria conta.");
-        }
-
         log.info("Atualizando usuário com email: " + email);
         User currentUser = getUser(email);
 
@@ -190,7 +213,7 @@ public class UserController {
             currentUser.setPhone(updatedUser.getPhone());
         }
         if (updatedUser.getPassword() != null) {
-            currentUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+            currentUser.setPassword(updatedUser.getPassword());
         }
 
         User savedUser = repository.save(currentUser);
