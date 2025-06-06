@@ -37,6 +37,27 @@ O **Ayra** é um aplicativo voltado à prevenção de desastres naturais, utiliz
 └── static
 ```
 ---
+## ⚙️ Configuração do application.properties
+Antes de rodar a aplicação, configure as informações de acesso ao seu banco de dados no arquivo:
+```css
+src/main/resources/application.properties
+```
+Exemplo de configuração para Oracle:
+```properties
+# Oracle Database
+spring.datasource.url=jdbc:oracle:thin:@localhost:1521:xe
+spring.datasource.username=SEU_USUARIO
+spring.datasource.password=SUA_SENHA
+spring.datasource.driver-class-name=oracle.jdbc.OracleDriver
+
+# JPA / Hibernate
+spring.jpa.hibernate.ddl-auto=none
+spring.jpa.show-sql=true
+spring.jpa.database-platform=org.hibernate.dialect.Oracle12cDialect
+```
+|💡 Dica: Certifique-se de que o banco Oracle esteja rodando localmente (ou configure o IP/porta corretos). O ddl-auto=none garante que o Hibernate não tente criar ou apagar tabelas automaticamente.
+
+---
 
 ## 🧪 Testes e Validação
 
