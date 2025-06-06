@@ -236,7 +236,7 @@ cd Ayra_Api
 2. Execute a aplicação:
 
 ```bash
-./mvnw spring-boot:run
+mvnw spring-boot:run
 ```
 
 3. Acesse a API em:
